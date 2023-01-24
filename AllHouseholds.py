@@ -1,13 +1,17 @@
 from Model.Household import Household
 from tqdm import tqdm
 import plotly.express as px
-import plotly.graph_objects as go
+# import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
 
 
 class AllHouseholds(Household):
+    """Brings together data from all households within a 'group' by calling on the Household module in order to
+    analyse all of them together. Used to determine the extent of the number of NaNs and zeros within the dataset.
 
+    Call in 'AllHouseholds('group') where 'group' can equal either 'Control' or 'ToU'. Then any of the following
+    functions can be called to plot the relevant data."""
     def __init__(self, group: 'str'):
         """Returns a number of lists containing parameters of each Household within a group specified by the 'group'
         input.
@@ -26,8 +30,9 @@ class AllHouseholds(Household):
         households
         """
         self.group = group
-        assert self.group == 'Control' or self.group == 'ToU'
+        assert self.group == 'C' or self.group == 'T'
 
+        self.HId = []
         self.num_null = []
         self.max_consec_nulls = []
         self.num_points = []
@@ -36,12 +41,13 @@ class AllHouseholds(Household):
         # self.time_series = []
         # self.index_series = []
 
-        if self.group == 'Control':
+        if self.group == 'C':
             self.range_of_Households = Household.range_of_CHouseholds
-        elif self.group == 'ToU':
+        elif self.group == 'T':
             self.range_of_Households = Household.range_of_THouseholds
 
         for i in tqdm(range(self.range_of_Households[0], self.range_of_Households[1])):
+            self.HId.append(i)
             self.num_null.append(Household(i).number_of_nulls())
             self.num_points.append(Household(i).number_of_data_points())
             self.num_zeros.append(Household(i).number_of_zeros())
@@ -51,21 +57,21 @@ class AllHouseholds(Household):
                 self.max_consec_nulls.append(max(Household(i).number_of_consec_nulls(0)))
             except:
                 self.max_consec_nulls.append(0)
+
             try:
                 self.max_consec_zeros.append(max(Household(i).number_of_consec_zeros(0)))
             except:
                 self.max_consec_zeros.append(0)
-        df = pd.DataFrame({'num_null': self.num_null,
+        df = pd.DataFrame({'HId': self.HId,
+                           'num_null': self.num_null,
                            'consec_nulls': self.max_consec_nulls,
                            'num_points': self.num_points,
                            'num_zeros': self.num_zeros,
                            'consec_zeros': self.max_consec_zeros})
         df = df.loc[df.num_points != 0]
-        df['HId'] = df.index
-        df['null_percent'] = round(100*df.num_null/(df.num_null+df.num_points),1)
+        df['null_percent'] = round(100*df.num_null/(df.num_null+df.num_points), 1)
         df['zeros_percent'] = round(100 * df.num_zeros / df.num_points, 1)
         self.df = df
-
 
     def hist_of_nulls(self, number_of_bins=50):
         """Histogram of number of null entries."""
@@ -80,27 +86,27 @@ class AllHouseholds(Household):
         fig.show(renderer='browser')
         return fig
 
-    def bar_of_nulls(self, number_of_HH=200):
+    def bar_of_nulls(self, number_of_hh=200):
         """Bar chart showing the number of null values for each household in descending order.
         'number_of_HH' input represents the top x households that are displayed."""
         df = self.df.sort_values(by='num_null', ascending=False).reset_index(drop=True)
-        fig = px.bar(df, x=self.df.index, y='num_null', hover_data=['HId','null_percent'],
+        fig = px.bar(df, x=self.df.index, y='num_null', hover_data=['HId', 'null_percent'],
                      labels={'num_null': 'Number of null entries ', 'HId': 'Household Id number ',
                              'null_percent': 'Percentage of null entries', 'x': 'Index'})
         fig.update_layout(
             xaxis=dict(
                 rangeslider=dict(
                     visible=True,
-                    range=[0, number_of_HH]
+                    range=[0, number_of_hh]
                 ),
                 type="linear",
-                range=[0, number_of_HH]
+                range=[0, number_of_hh]
             )
         )
         fig.show(renderer='browser')
         return fig
 
-    def bar_of_consec_nulls(self,number_of_HH=200):
+    def bar_of_consec_nulls(self, number_of_hh=200):
         """Bar chart showing the maximum number of consecutive null values for each household in descending order.
                 'number_of_HH' input represents the top x households that are displayed."""
         df = self.df.sort_values(by='consec_nulls', ascending=False).reset_index(drop=True)
@@ -112,16 +118,16 @@ class AllHouseholds(Household):
             xaxis=dict(
                 rangeslider=dict(
                     visible=True,
-                    range=[0, number_of_HH]
+                    range=[0, number_of_hh]
                 ),
                 type="linear",
-                range=[0, round(number_of_HH/2,0)]
+                range=[0, round(number_of_hh / 2, 0)]
             )
         )
         fig.show(renderer='browser')
         return fig
 
-    def bar_of_zeros(self, number_of_HH=200):
+    def bar_of_zeros(self, number_of_hh=200):
         """Bar chart showing the number of zero entries for each household in descending order.
                 'number_of_HH' input represents the top x households that are displayed."""
         df = self.df.sort_values(by='num_zeros', ascending=False).reset_index(drop=True)
@@ -132,16 +138,16 @@ class AllHouseholds(Household):
             xaxis=dict(
                 rangeslider=dict(
                     visible=True,
-                    range=[0, 200]
+                    range=[0, number_of_hh]
                 ),
                 type="linear",
-                range=[0, 100]
+                range=[0, round(number_of_hh / 2, 0)]
             )
         )
         fig.show(renderer='browser')
         return fig
 
-    def bar_of_consec_zeros(self, number_of_HH=200):
+    def bar_of_consec_zeros(self, number_of_hh=200):
         """Bar chart showing the maximum number of consecutive zero entries for each household in descending order.
                         'number_of_HH' input represents the top x households that are displayed."""
         df = self.df.sort_values(by='consec_zeros', ascending=False).reset_index(drop=True)
@@ -154,30 +160,30 @@ class AllHouseholds(Household):
             xaxis=dict(
                 rangeslider=dict(
                     visible=True,
-                    range=[0, 200]
+                    range=[0, number_of_hh]
                 ),
                 type="linear",
-                range=[0, 100]
+                range=[0, round(number_of_hh / 2, 0)]
             )
         )
         fig.show(renderer='browser')
         return fig
 
-    def bar_of_zeros_percent(self, number_of_HH=200):
+    def bar_of_zeros_percent(self, number_of_hh=200):
         """Bar chart showing the percentage of zero entries for each household in descending order.
                       'number_of_HH' input represents the top x households that are displayed."""
         df = self.df.sort_values(by='zeros_percent', ascending=False).reset_index(drop=True)
         fig = px.bar(df, x=df.index, y='zeros_percent', hover_data=['HId', 'num_zeros'],
                      labels={'num_zeros': 'Number of zero entries ', 'HId': 'Household Id number ',
-                             'zeros_percent': 'Percentage of zero entries' ,'x': 'Index'})
+                             'zeros_percent': 'Percentage of zero entries', 'x': 'Index'})
         fig.update_layout(
             xaxis=dict(
                 rangeslider=dict(
                     visible=True,
-                    range=[0, 200]
+                    range=[0, number_of_hh]
                 ),
                 type="linear",
-                range=[0, 100]
+                range=[0, round(number_of_hh / 2, 0)]
             )
         )
         fig.show(renderer='browser')

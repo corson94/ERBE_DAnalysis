@@ -4,7 +4,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 class Household:
-    """Help is on its way"""
+    """Module that takes the 'matrix' file and returns a dataframe of the chosen household only.
+    Then a number of functions can be applied to the household's dataframe to return a range of parameters and plots."""
     load_dataC = False
     load_dataT = False
     fileC = pd.DataFrame()
@@ -12,7 +13,7 @@ class Household:
     file_number = pd.read_parquet('Data/Working_Data/Seperated_Files/File_number/Lib/file_number.gzip')
     number_of_Households = file_number.LCLid.iloc[-1]
     range_of_CHouseholds = [0, file_number.LCLid.loc[file_number['std(0) or ToU(1)'] == 0].iloc[-1]+1]
-    range_of_THouseholds = [range_of_CHouseholds, number_of_Households+1]
+    range_of_THouseholds = [range_of_CHouseholds[1], number_of_Households+1]
 
     def __init__(self, Id):
         """Assign Household to variable using 'LCLid' number as Id."""
@@ -28,7 +29,7 @@ class Household:
                         Household.fileC['HH' + str(self.Id)].last_valid_index()]
             self.dataframe = dataframe
 
-        elif 4442 < self.Id < 5566:
+        elif 4442 < self.Id <= 5566:
             if not Household.load_dataT:
                 file = pd.read_parquet('Data/Working_Data/Matrix/matrixT.gzip')
                 Household.load_dataT = True
