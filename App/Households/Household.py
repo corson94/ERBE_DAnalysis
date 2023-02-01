@@ -14,20 +14,20 @@ class Household:
     directory = r"C:\Users\corso\OneDrive - University College London\Documents" \
                 r"\ERBE CDT\Energy Data Analysis\Data"
     groups = ['Control', 'ToU']
-    file_hh = [(), ()]
-    load_data = [False, False]
-    file_number = pd.read_parquet(rf"{directory}\Working_Data\Seperated_Files\File_number\Lib\file_number.gzip")
-
-    number_of_Households = file_number.LCLid.iloc[-1]
-    range_of_Households = [[0, file_number.LCLid.loc[file_number['std(0) or ToU(1)'] == 0].iloc[-1] + 1],
-                           [file_number.LCLid.loc[file_number['std(0) or ToU(1)'] == 0].iloc[-1] + 1,
+    file_hh = [None, None]
+    file_number_path = rf"{directory}\Working_Data\Seperated_Files\File_number\Lib\file_number.gzip"
+    number_of_Households = pd.read_parquet(file_number_path).LCLid.iloc[-1]
+    range_of_Households = [[0, pd.read_parquet(file_number_path).LCLid
+                            .loc[pd.read_parquet(file_number_path)['std(0) or ToU(1)'] == 0].iloc[-1] + 1],
+                           [pd.read_parquet(file_number_path).LCLid
+                            .loc[pd.read_parquet(file_number_path)['std(0) or ToU(1)'] == 0].iloc[-1] + 1,
                             number_of_Households]
                            ]
 
     def __init__(self, Id):
         """Assign Household to variable using 'LCLid' number as Id."""
         assert isinstance(Id, int)
-        assert (0 <= Id <= 5565)
+        assert (Household.range_of_Households[0][0] <= Id <= Household.range_of_Households[1][1])
         self.Id = Id
 
         if Household.range_of_Households[0][0] <= self.Id < Household.range_of_Households[0][1]:
@@ -37,11 +37,9 @@ class Household:
             self.group = Household.groups[1]
             self.group_num = 1
 
-        if not Household.load_data[self.group_num]:
+        if Household.file_hh[self.group_num] is None:
             Household.file_hh[self.group_num] = pd.read_parquet(rf"{Household.directory}\Working_Data\Matrix"
                                                                 rf"\Original\matrix{self.group[0]}.gzip")
-
-            Household.load_data[self.group_num] = True
 
         df = Household.file_hh[self.group_num]['HH' + str(self.Id)].loc[
                     Household.file_hh[self.group_num]['HH' + str(self.Id)].first_valid_index():
@@ -60,11 +58,18 @@ class Household:
         """Returns the number of NaNs for this Household."""
         return self.df.isna().sum()
 
-    def number_of_consec_nulls(self, minimum=2):
+    def nulls_percent(self):
+        """Returns the number of NaNs for this Household as a percentage of the total data points."""
+        return round(100 * self.df.isna().sum() / (self.df.isna().sum() + self.df.count()), 1)
+
+    def max_number_of_consec_nulls(self, minimum=2):
         """Returns a df with the count of each set of consecutive NaNs, starting from sets of x where x is
         defined by the 'minimum' input"""
         consec_nulls = self.df.notna().cumsum()[self.df.isna()].value_counts().reset_index(drop=True)
-        return consec_nulls.loc[consec_nulls >= minimum]
+        try:
+            return max(consec_nulls.loc[consec_nulls >= minimum])
+        except ValueError:
+            return 0
 
     def number_of_data_points(self):
         """Returns the number of data points for this Household."""
@@ -74,11 +79,18 @@ class Household:
         """Returns the number of zeros for this Household."""
         return self.df.loc[self.df == 0].count()
 
-    def number_of_consec_zeros(self, minimum=2):
+    def zeros_percent(self):
+        """Returns the number of zeros for this Household as a percentage of the total data points."""
+        return round(100 * self.df.loc[self.df == 0].count() / self.df.count(), 1)
+
+    def max_number_of_consec_zeros(self, minimum=2):
         """Returns a df with the count of each set of consecutive zeros, starting from sets of x where x is
         defined by the 'minimum' input"""
         consec_zeros = (self.df != 0).cumsum()[self.df == 0].value_counts().reset_index(drop=True)
-        return consec_zeros.loc[consec_zeros >= minimum]
+        try:
+            return max(consec_zeros.loc[consec_zeros >= minimum])
+        except ValueError:
+            return 0
 
     def write_or_plot(self, fig, name: 'str', write=False):
         if write is None:

@@ -6,9 +6,35 @@ import plotly.express as px
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import pickle
 
 # from Households.Household import Household
 from Model.App.Households.Household import Household
+
+
+def write_new(group: str, param_file_name: str, name: str = 'cleaning', write_objs=False):
+    with open(rf"{Household.directory}\Working_Data\Parameters\Pickles\{param_file_name}.pkl", 'rb') as inp:
+        params = pickle.load(inp)
+
+    if Household.file_hh[Household.groups.index(group)] is None:
+        Household.file_hh[Household.groups.index(group)] = pd.read_parquet(
+            rf"{Household.directory}\Working_Data\Matrix\Original\matrix{group[0]}.gzip")
+
+    range_of_households = [
+        int(column[2:]) for column in Household.file_hh[Household.groups.index(group)].columns]
+    if not write_objs:
+        df = pd.DataFrame(columns=list(params.keys()), index=range(len(range_of_households)))
+        df.insert(loc=0, column='HId', value=[i for i in range_of_households])
+        for param in tqdm(params.keys()):
+            df[param] = [getattr(Household(i), param)() for i in range_of_households]
+        df = df.loc[df.number_of_data_points != 0]
+        df.to_parquet(rf"{Household.directory}\Working_Data"
+                      rf"\Parameters\Parquets\{name}{group[0]}.gzip")
+    else:
+        list_objs = [Household(i) for i in range_of_households]
+        with open(rf"{Household.directory}\Working_Data\Pickled_objs\Households{group[0]}.pkl", 'wb') as inp:
+            pickle.dump(list_objs, inp, -1)
+
 
 class AllHouseholds():
     """Brings together data from all households within a 'group' by calling on the Household module in order to
@@ -17,11 +43,9 @@ class AllHouseholds():
     Call in 'AllHouseholds('group') where 'group' can equal either 'Control' or 'ToU'. Then any of the following
     functions can be called to plot the relevant data."""
 
-    # load_data = [False, False]
-    # file_all = [(), ()]
+    # groups = []
 
-
-    def __init__(self, group: 'str', write=False):
+    def __init__(self, group: 'str', name: str = 'cleaning'):
         """Returns a number of lists containing parameters of each Household within a group specified by the 'group'
         input.
         ## Lists include: ##
@@ -39,69 +63,19 @@ class AllHouseholds():
         households
         """
         self.group = group
-        self.write = write
-        self.load_data = False
         assert self.group == 'Control' or self.group == 'ToU'
-        assert isinstance(self.write, bool)
         self.group_num = Household.groups.index(self.group)
 
+        # if self.group not in AllHouseholds.groups:
+        #     AllHouseholds.groups.append(self.group)
+        #     AllHouseholds.groups.sort()
+        #     self.group_num = AllHouseholds.groups.index(self.group)
 
-        if self.write:
-            self.HId = []
-            self.num_null = []
-            self.max_consec_nulls = []
-            self.num_points = []
-            self.num_zeros = []
-            self.max_consec_zeros = []
-            self.list_objects = []
-            # self.time_series = []
-            # self.index_series = []
-            if not Household.load_data[self.group_num]:
-                Household.file_hh[self.group_num] = pd.read_parquet(
-                    rf"{Household.directory}\Working_Data\Matrix\Original\matrix{self.group[0]}.gzip")
-                Household.load_data[self.group_num] = True
-
-            # if not AllHouseholds.load_data[self.group_num]:
-            range_of_households = [
-                int(column[2:]) for column in Household.file_hh[Household.groups.index(self.group)].columns]
-
-            for i in tqdm(range_of_households):
-                self.HId.append(i)
-                self.num_null.append(Household(i).number_of_nulls())
-                self.num_points.append(Household(i).number_of_data_points())
-                self.num_zeros.append(Household(i).number_of_zeros())
-                self.list_objects.append(Household(i))
-                # self.time_series.append(Household(i).df.dropna().index)
-                # self.index_series.append(Household(i).df.reset_index().dropna().index)
-                try:
-                    self.max_consec_nulls.append(max(Household(i).number_of_consec_nulls(0)))
-                except ValueError:
-                    self.max_consec_nulls.append(0)
-
-                try:
-                    self.max_consec_zeros.append(max(Household(i).number_of_consec_zeros(0)))
-                except ValueError:
-                    self.max_consec_zeros.append(0)
-
-            df = pd.DataFrame({'HId': self.HId,
-                               'num_null': self.num_null,
-                               'consec_nulls': self.max_consec_nulls,
-                               'num_points': self.num_points,
-                               'num_zeros': self.num_zeros,
-                               'consec_zeros': self.max_consec_zeros})
-            df = df.loc[df.num_points != 0]
-            df['null_percent'] = round(100*df.num_null/(df.num_null+df.num_points), 1)
-            df['zeros_percent'] = round(100 * df.num_zeros / df.num_points, 1)
-            self.file_all = df
-            # self.file_all.to_parquet(f"{Household.directory}\Working_Data"
-            #                          f"\Cleaning\AllHouseholds{self.group[0]}.gzip")
-            self.load_data = True
-
-        elif not self.load_data:
-            self.file_all = pd.read_parquet(f"{Household.directory}\Working_Data"
-                                            f"\Cleaning\AllHouseholds{self.group[0]}.gzip")
-        else:
-            pass
+        #     AllHouseholds.file_all[self.group_num] =
+        self.file_ = pd.read_parquet(
+                f"{Household.directory}\Working_Data\Parameters\Parquets\{name}{self.group[0]}.gzip")
+        with open(rf"{Household.directory}\Working_Data\Parameters\Pickles\{name}.pkl", 'rb') as inp:
+            self.params = pickle.load(inp)
 
     def write_or_plot(self, fig, name: 'str', write=False):
         if write is None:
@@ -131,7 +105,7 @@ class AllHouseholds():
 
     def hist_of_nulls(self, number_of_bins=50, write=False):
         """Histogram of number of null entries."""
-        df = self.file_all
+        df = self.file_
         fig = px.histogram(df.num_null)
         fig.layout.sliders = [dict(
             active=4,
@@ -142,71 +116,15 @@ class AllHouseholds():
         )]
         return self.write_or_plot(fig, name=inspect.stack()[0][3], write=write)
 
-    def bar_of_nulls(self, number_of_hh=200, write=False):
-        """Bar chart showing the number of null values for each household in descending order.
-        'number_of_HH' input represents the top x households that are displayed."""
-        df = self.file_all \
-            .sort_values(by='num_null', ascending=False) \
+    def bar(self, y: str, number_of_hh=200, write=None, name=None):
+        df = self.file_ \
+            .sort_values(by=y, ascending=False) \
             .reset_index(drop=True)
-
-        fig = px.bar(df, x=df.index, y='num_null', hover_data=['HId', 'null_percent'],
-                     labels={'HId': 'Household Id number ', 'num_null': 'Number of null entries ',
-                             'consec_nulls': 'Maximum number of consecutive null entries',
-                             'null_percent': 'Percentage of null entries', 'x': 'Index'})
+        fig = px.bar(df, x=df.index, y=y, hover_data=self.file_.columns.tolist(),
+                     labels={**{'HId': 'Household Id number ', 'x': 'Index'},
+                             **self.params})
         AllHouseholds.update_fig(fig, number_of_hh)
-        return self.write_or_plot(fig, name=inspect.stack()[0][3], write=write)
-
-    def bar_of_consec_nulls(self, number_of_hh=200, write=False):
-        """Bar chart showing the maximum number of consecutive null values for each household in descending order.
-                'number_of_HH' input represents the top x households that are displayed."""
-        df = self.file_all \
-            .sort_values(by='consec_nulls', ascending=False) \
-            .reset_index(drop=True)
-
-        fig = px.bar(df, x=df.index, y='consec_nulls', hover_data=['HId', 'num_null', 'null_percent'],
-                     labels={'num_null': 'Number of null entries ', 'HId': 'Household Id number ',
-                             'null_percent': 'Percentage of null entries', 'x': 'Index',
-                             'consec_nulls': 'Maximum number of consecutive null entries'})
-        AllHouseholds.update_fig(fig, number_of_hh)
-        return self.write_or_plot(fig, name=inspect.stack()[0][3], write=write)
-
-    def bar_of_zeros(self, number_of_hh=200, write=False):
-        """Bar chart showing the number of zero entries for each household in descending order.
-                'number_of_HH' input represents the top x households that are displayed."""
-        df = self.file_all\
-            .sort_values(by='num_zeros', ascending=False) \
-            .reset_index(drop=True)
-
-        fig = px.bar(df, x=df.index, y='num_zeros', hover_data=['HId', 'zeros_percent'],
-                     labels={'num_zeros': 'Number of zero entries ', 'HId': 'Household Id number ',
-                             'zeros_percent': 'Percentage of zero entries', 'x': 'Index'})
-        AllHouseholds.update_fig(fig, number_of_hh)
-        return self.write_or_plot(fig, name=inspect.stack()[0][3], write=write)
-
-    def bar_of_consec_zeros(self, number_of_hh=200, write=False):
-        """Bar chart showing the maximum number of consecutive zero entries for each household in descending order.
-                        'number_of_HH' input represents the top x households that are displayed."""
-        df = self.file_all\
-            .sort_values(by='consec_zeros', ascending=False)\
-            .reset_index(drop=True)
-
-        fig = px.bar(df, x=df.index, y='consec_zeros', hover_data=['HId', 'num_zeros', 'zeros_percent'],
-                     labels={'num_zeros': 'Number of zero entries ', 'HId': 'Household Id number ',
-                             'zeros_percent': 'Percentage of zero entries', 'x': 'Index',
-                             'consec_zeros': 'Maximum number of consecutive zero entries'}
-                     )
-        AllHouseholds.update_fig(fig, number_of_hh)
-        return self.write_or_plot(fig, name=inspect.stack()[0][3], write=write)
-
-    def bar_of_zeros_percent(self, number_of_hh=200, write=False):
-        """Bar chart showing the percentage of zero entries for each household in descending order.
-                      'number_of_HH' input represents the top x households that are displayed."""
-        df = self.file_all.sort_values(by='zeros_percent', ascending=False).reset_index(drop=True)
-        fig = px.bar(df, x=df.index, y='zeros_percent', hover_data=['HId', 'num_zeros'],
-                     labels={'num_zeros': 'Number of zero entries ', 'HId': 'Household Id number ',
-                             'zeros_percent': 'Percentage of zero entries', 'x': 'Index'})
-        AllHouseholds.update_fig(fig, number_of_hh)
-        return self.write_or_plot(fig, name=inspect.stack()[0][3], write=write)
+        return self.write_or_plot(fig, name=name, write=write)
 
     def clean(self, threshold: ['int'], column: ['str']):
         """Function to clean the matrix dataset by excluding data in column x that is greater than some 'threshold'.
@@ -219,22 +137,23 @@ class AllHouseholds():
         Total number of datapoints (including zeros, excluding NaNs): num_points
         """
 
-        matrix = self.file_all
+        matrix = pd.read_parquet(rf"{Household.directory}\Working_Data\Matrix"
+                                 rf"\Original\matrix{self.group[0]}.gzip")
 
         # if there is only one parameter and one threshold to use to clean
         if isinstance(threshold, int) and isinstance(column, str):
-            cleaned = self.df.loc[self.df[column] <= threshold]
+            cleaned = self.file_.loc[self.file_[column] <= threshold]
 
         # if there are multiple parameters and thresholds to use to clean
         elif isinstance(threshold, list) and isinstance(threshold, list):
             assert len(threshold) == len(column)
-            cleaned = self.df.loc[self.df[column[0]] <= threshold[0]]
+            cleaned = self.file_.loc[self.file_[column[0]] <= threshold[0]]
             for i in range(1, len(column)):
                 cleaned = cleaned.loc[cleaned[column[i]] <= threshold[i]]
 
         # if there are multiple parameters to use to clean by one threshold
         elif isinstance(threshold, int) and isinstance(column, list):
-            cleaned = self.df.loc[self.df[column[0]] <= threshold]
+            cleaned = self.file_.loc[self.file_[column[0]] <= threshold]
             for i in range(1, len(column)):
                 cleaned = cleaned.loc[cleaned[column[i]] <= threshold]
 

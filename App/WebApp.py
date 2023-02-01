@@ -2,6 +2,7 @@
 visit http://127.0.0.1:8050/ in your web browser."""
 
 from Model.App.Households.Household import Household
+# from Model.App.Households.AllHouseholds import AllHouseholds
 from dash import Dash, dcc, html, Input, Output, ctx
 import pickle
 # import os
@@ -12,8 +13,10 @@ if 'files' not in locals():
     files = []
     file_names = ['Control', 'ToU', 'HouseholdsC', 'HouseholdsT']
     for file in file_names:
-        with open(rf"{Household.directory}\Working_Data\Cleaning\{file}.pkl", 'rb') as inp:
+        with open(rf"{Household.directory}\Working_Data\Pickled_objs\{file}.pkl", 'rb') as inp:
             files.append(pickle.load(inp))
+    with open(rf"{Household.directory}\Working_Data\Parameters\Pickles\cleaning.pkl", 'rb') as inp:
+        params = pickle.load(inp)
 else:
     pass
 
@@ -21,6 +24,12 @@ colors = {
     'background': '#111111',
     'text': '#7FDBFF'
 }
+
+
+def options(label, value):
+    return {'label': label, 'value': value}
+
+
 graph_height = {'height': '15cm'}
 
 app = Dash(__name__)
@@ -68,15 +77,16 @@ app.layout = html.Div([
         html.Div([
             html.Label('Plot type:', style={'display': 'block'}),
             dcc.Dropdown(
-                options=[
-                    {'label': 'Number of nulls', 'value': 'bar_of_nulls'},
-                    {'label': 'Number of consecutive nulls', 'value': 'bar_of_consec_nulls'},
-                    {'label': 'Histogram of nulls', 'value': 'hist_of_nulls'},
-                    {'label': 'Number of zeros', 'value': 'bar_of_zeros'},
-                    {'label': 'Number of consecutive zeros', 'value': 'bar_of_consec_zeros'},
-                    {'label': 'Percentage of zeros', 'value': 'bar_of_zeros_percent'}
-                ],
-                value='bar_of_nulls',
+                options=[options(val, key) for key, val in params.items()],
+                # {'label': 'Number of nulls', 'value': 'bar_of_nulls'},
+                # {'label': 'Number of consecutive nulls', 'value': 'bar_of_consec_nulls'},
+                # {'label': 'Histogram of nulls', 'value': 'hist_of_nulls'},
+                # {'label': 'Number of zeros', 'value': 'bar_of_zeros'},
+                # {'label': 'Number of consecutive zeros', 'value': 'bar_of_consec_zeros'},
+                # {'label': 'Percentage of zeros', 'value': 'bar_of_zeros_percent'}
+                # ],
+
+                value='number_of_nulls',
                 id='allHousehold_plot_type',
                 style={'width': '8cm',
                        'display': 'block'}
@@ -158,7 +168,7 @@ app.layout = html.Div([
 )
 def update_figure(group_type: 'str', allHhousehold_plot_type, click_info, household_plot_type, household_id):
     triggered_id = ctx.triggered_id
-    fig_allHh = getattr(files[file_names.index(group_type)], allHhousehold_plot_type)(write=None)
+    fig_allHh = files[file_names.index(group_type)].bar(allHhousehold_plot_type)
     starting_id = Household.range_of_Households[file_names.index(group_type)][0]
 
     if triggered_id is None:
