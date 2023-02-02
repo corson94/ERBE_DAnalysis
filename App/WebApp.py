@@ -25,12 +25,27 @@ colors = {
     'text': '#7FDBFF'
 }
 
+graph_height = {'height': '15cm'}
+
+periods = {
+    'Half-hourly': 'hh',
+    'Daily': 'day',
+    'Weekly': 'week',
+    'Monthly': 'month'
+}
+
+calculations = {
+    'Sum': 'sum',
+    'Mean': 'mean',
+    'Maximum': 'max',
+    'Minimum': 'min',
+    'None (Half-hourly only)': 'None'
+}
+
 
 def options(label, value):
     return {'label': label, 'value': value}
 
-
-graph_height = {'height': '15cm'}
 
 app = Dash(__name__)
 
@@ -78,14 +93,6 @@ app.layout = html.Div([
             html.Label('Plot type:', style={'display': 'block'}),
             dcc.Dropdown(
                 options=[options(val, key) for key, val in params.items()],
-                # {'label': 'Number of nulls', 'value': 'bar_of_nulls'},
-                # {'label': 'Number of consecutive nulls', 'value': 'bar_of_consec_nulls'},
-                # {'label': 'Histogram of nulls', 'value': 'hist_of_nulls'},
-                # {'label': 'Number of zeros', 'value': 'bar_of_zeros'},
-                # {'label': 'Number of consecutive zeros', 'value': 'bar_of_consec_zeros'},
-                # {'label': 'Percentage of zeros', 'value': 'bar_of_zeros_percent'}
-                # ],
-
                 value='number_of_nulls',
                 id='allHousehold_plot_type',
                 style={'width': '8cm',
@@ -114,7 +121,6 @@ app.layout = html.Div([
     html.Div([
         html.Div([
             html.Label("Household Id (0 - 5565): "),
-            # html.Div(id='household_id_label', style={'display': 'block'}),
             dcc.Input(id='household_id', type='number', step=1, min=0, max=5565,
                       style={'display': 'block'},
                       debounce=True)
@@ -138,6 +144,36 @@ app.layout = html.Div([
                 style={'display': 'block',
                        'width': '8cm'}
             )],
+            style={'display': 'inline-block',
+                   'vertical-align': 'top'}
+        ),
+
+        # placeholder
+        html.Div(style={'width': '2%', 'display': 'inline-block'}),
+
+        html.Div([
+            html.Label('Period type:', style={'display': 'block'}),
+            dcc.Dropdown(options=[options(key, val) for key, val in periods.items()],
+                         value='hh',
+                         id='household_period_type',
+                         style={'display': 'block',
+                                'width': '3cm'}
+                         )],
+            style={'display': 'inline-block',
+                   'vertical-align': 'top'}
+        ),
+
+        # placeholder
+        html.Div(style={'width': '2%', 'display': 'inline-block'}),
+
+        html.Div([
+            html.Label('Calculation type:', style={'display': 'block'}),
+            dcc.Dropdown(options=[options(key, val) for key, val in calculations.items()],
+                         value='None',
+                         id='household_calc_type',
+                         style={'display': 'block',
+                                'width': '3cm'}
+                         )],
             style={'display': 'inline-block',
                    'vertical-align': 'top'}
         )],
@@ -164,27 +200,35 @@ app.layout = html.Div([
     Input('allHousehold_plot_type', 'value'),
     Input('allHouseholds_plot', 'clickData'),
     Input('household_plot_type', 'value'),
-    Input('household_id', 'value')
+    Input('household_id', 'value'),
+    Input('household_period_type', 'value'),
+    Input('household_calc_type', 'value')
 )
-def update_figure(group_type: 'str', allHhousehold_plot_type, click_info, household_plot_type, household_id):
+def update_figure(group_type: 'str',
+                  allHhousehold_plot_type,
+                  click_info,
+                  household_plot_type,
+                  household_id,
+                  period_type,
+                  calc):
     triggered_id = ctx.triggered_id
     fig_allHh = files[file_names.index(group_type)].bar(allHhousehold_plot_type)
     starting_id = Household.range_of_Households[file_names.index(group_type)][0]
 
     if triggered_id is None:
         fig_hh = getattr(files[file_names.index(group_type)+2][int(starting_id)],
-                         household_plot_type)(write=None)
+                         household_plot_type)(period=period_type, calculation=calc, write=None)
         id_value = starting_id
 
     elif triggered_id == 'allHouseholds_plot':
         click_hhid = click_info['points'][0]['customdata'][0]
         fig_hh = getattr(files[file_names.index(group_type)+2][int(click_hhid)],
-                         household_plot_type)(write=None)
+                         household_plot_type)(period=period_type, calculation=calc, write=None)
         id_value = click_hhid
 
     else:
         fig_hh = getattr(files[file_names.index(group_type)+2][int(int(household_id))],
-                         household_plot_type)(write=None)
+                         household_plot_type)(period=period_type, calculation=calc, write=None)
         id_value = household_id
 
     return fig_allHh, fig_hh, id_value
