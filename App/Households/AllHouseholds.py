@@ -12,17 +12,16 @@ import pickle
 from Model.App.Households.Household import Household
 
 
-def write_new(group: str, param_file_name: str, name: str = 'cleaning', write_objs=False):
-    with open(rf"{Household.directory}\Working_Data\Parameters\Pickles\{param_file_name}.pkl", 'rb') as inp:
-        params = pickle.load(inp)
-
+def write_new(group: str, param_file_name: str = 'cleaning', name: str = 'cleaning', write_objs=False):
     if Household.file_hh[Household.groups.index(group)] is None:
         Household.file_hh[Household.groups.index(group)] = pd.read_parquet(
-            rf"{Household.directory}\Working_Data\Matrix\Original\matrix{group[0]}.gzip")
+            rf"{Household.directory}\Working_Data\Matrix\Different_formats\matrix_ymwd_{group[0]}.gzip")
 
     range_of_households = [
-        int(column[2:]) for column in Household.file_hh[Household.groups.index(group)].columns]
+        int(column[2:]) for column in Household.file_hh[Household.groups.index(group)].columns[4:]]
     if not write_objs:
+        with open(rf"{Household.directory}\Working_Data\Parameters\Pickles\{param_file_name}.pkl", 'rb') as inp:
+            params = pickle.load(inp)
         df = pd.DataFrame(columns=list(params.keys()), index=range(len(range_of_households)))
         df.insert(loc=0, column='HId', value=[i for i in range_of_households])
         for param in tqdm(params.keys()):
@@ -138,7 +137,7 @@ class AllHouseholds():
         """
 
         matrix = pd.read_parquet(rf"{Household.directory}\Working_Data\Matrix"
-                                 rf"\Original\matrix{self.group[0]}.gzip")
+                                 rf"\Different_formats\matrix_ymwd_{self.group[0]}.gzip")
 
         # if there is only one parameter and one threshold to use to clean
         if isinstance(threshold, int) and isinstance(column, str):
