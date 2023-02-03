@@ -1,3 +1,2 @@
 # # Model\__init__.py
-# print(__name__)
-# from Model import App
+print(f"Loading {__name__} package")
