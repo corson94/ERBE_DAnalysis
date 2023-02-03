@@ -126,11 +126,11 @@ class Household:
 
     def time_plot(self, period='hh', calculation=None, write=False):
         """Returns a plot of time (y-axis) vs data point number (x-axis)."""
-        if f"{period}_{calculation}" not in self.datasets:
-            self.agg_data(period, calculation)
-        df = self.datasets[f"{period}_{calculation}"]
+        # if f"{period}_{calculation}" not in self.datasets:
+        #     self.agg_data(period, calculation)
+        df = self.datasets["hh_None"]
         fig = go.Figure()
-        fig.add_trace(go.Scatter(y=df.index, line=dict(color='blue'), name=('H' + str(self.Id))))
+        fig.add_trace(go.Scatter(y=df.dropna().index, line=dict(color='blue'), name=('H' + str(self.Id))))
         fig.add_trace(go.Scatter(y=pd.date_range(self.start_date(), self.end_date(), freq='30min'),
                                  line=dict(color='red'), name='1:1 plot'))
         fig.update_layout(title=f"{self.number_of_nulls()} null entries out of "
