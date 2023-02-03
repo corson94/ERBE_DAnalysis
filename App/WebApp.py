@@ -1,10 +1,13 @@
 """Run this app with `python myApp.py` and
 visit http://127.0.0.1:8050/ in your web browser."""
 
+print(f"Loading {__name__} module")
+
 from Model.App.Households.Household import Household
 # from Model.App.Households.AllHouseholds import AllHouseholds
 from dash import Dash, dcc, html, Input, Output, ctx
 import pickle
+# from flask import request
 # import os
 # import pandas as pd
 # import plotly.express as px
@@ -54,6 +57,9 @@ app = Dash(__name__)
 # ------------------------------------------------------------------------------------------------------------------
 
 app.layout = html.Div([
+    # # represents the URL bar, doesn't render anything
+    # dcc.Location(id='url', refresh=False),
+
     html.H1(
         children='Hello ERBE',
         style={
@@ -184,25 +190,35 @@ app.layout = html.Div([
 
     dcc.Graph(
         id='household_plot',
-        style=graph_height)
+        style=graph_height),
+
+    # # content will be rendered in this element
+    # html.Div(id='page-content')
 ])
 
 # ------------------------------------------------------------------------------------------------------------------
 #                                                   App callback
 # ------------------------------------------------------------------------------------------------------------------
 
+# def shutdown():
+#     func = request.environ.get('werkzeug.server.shutdown')
+#     if func is None:
+#         raise RuntimeError('Not running with the Werkzeug Server')
+#     func()
 
 @app.callback(
     Output(component_id='allHouseholds_plot', component_property='figure'),
     Output('household_plot', 'figure'),
     Output('household_id', 'value'),
+    # Output('page-content', 'children'),
     Input('group_type', 'value'),
     Input('allHousehold_plot_type', 'value'),
     Input('allHouseholds_plot', 'clickData'),
     Input('household_plot_type', 'value'),
     Input('household_id', 'value'),
     Input('household_period_type', 'value'),
-    Input('household_calc_type', 'value')
+    Input('household_calc_type', 'value'),
+    # Input('url', 'pathname')
 )
 def update_figure(group_type: 'str',
                   allHhousehold_plot_type,
@@ -211,11 +227,16 @@ def update_figure(group_type: 'str',
                   household_id,
                   period_type,
                   calc):
+                  # pathname):
+    # if pathname == '/shutdown':
+    #     shutdown()
+    # else:
     triggered_id = ctx.triggered_id
+    print(triggered_id)
     fig_allHh = files[file_names.index(group_type)].bar(allHhousehold_plot_type)
     starting_id = Household.range_of_Households[file_names.index(group_type)][0]
 
-    if triggered_id is None:
+    if triggered_id is None or triggered_id == 'url':
         fig_hh = getattr(files[file_names.index(group_type)+2][int(starting_id)],
                          household_plot_type)(period=period_type, calculation=calc, write=None)
         id_value = starting_id
@@ -227,12 +248,11 @@ def update_figure(group_type: 'str',
         id_value = click_hhid
 
     else:
-        fig_hh = getattr(files[file_names.index(group_type)+2][int(int(household_id))],
+        fig_hh = getattr(files[file_names.index(group_type)+2][int(household_id)],
                          household_plot_type)(period=period_type, calculation=calc, write=None)
         id_value = household_id
 
-    return fig_allHh, fig_hh, id_value
+    return fig_allHh, fig_hh, id_value #, html.Div([html.H3(f"You are on page {pathname}")])
 
 
-if __name__ == '__main__':
-    app.run_server(debug=True, host='localhost', port=8050)
+app.run_server(debug=True, host='localhost', port=8052)
